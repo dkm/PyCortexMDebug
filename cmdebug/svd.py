@@ -36,6 +36,8 @@ class SVDNonFatalError(Exception):
 		s += "\n" + str("".join(traceback.format_exc())).strip()
 		return s
 
+from cmdebug.svd_debug import show_last_exception
+
 class SVDFile:
 	def __init__(self, fname):
 		f = objectify.parse(os.path.expanduser(fname))

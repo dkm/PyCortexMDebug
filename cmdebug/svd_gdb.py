@@ -21,10 +21,12 @@ import gdb
 import re
 import math
 import sys
+
 import struct
 import pkg_resources
 sys.path.append('.')
 from cmdebug.svd import SVDFile
+from cmdebug.svd_debug import show_last_exception
 
 #from svd_test import *
 
@@ -172,6 +174,12 @@ class SVD(gdb.Command):
 			gdb.write("\n");
 
 	def invoke(self, args, from_tty):
+		try:
+			self.invoke_(args, from_tty)
+		except:
+			show_last_exception()
+
+	def invoke_(self, args, from_tty):
 		s = str(args).split(" ")
 		form = ""
 		if s[0] and s[0][0] == '/':
