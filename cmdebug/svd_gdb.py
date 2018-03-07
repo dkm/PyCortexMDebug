@@ -138,40 +138,45 @@ class SVD(gdb.Command):
 
 	def _print_register_fields(self, container_name, form, register):
 		gdb.write("Fields in {}:\n".format(container_name))
-		fields = register.fields
+
 		if not register.readable():
 			data = 0
 		else:
 			data = self.read(register.address(), register.size)
-		fieldList = []
 		try:
-			fields_iter = fields.itervalues()
-		except AttributeError:
-			fields_iter = fields.values()
-		for f in fields_iter:
-			desc = re.sub(r'\s+', ' ', f.description)
-			if register.readable():
-				val = data >> f.offset
-				val &= (1 << f.width) - 1
-				if f.enum:
-					if val in f.enum:
-						desc = f.enum[val][1] + " - " + desc
-						val = f.enum[val][0]
-					else:
-						val = "Invalid enum value: " + self.format(val, form, f.width)
-				else:
-					val = self.format(val, form, f.width)
-			else:
-				val = "(not readable)"
-			fieldList.append((f.name, val, desc))
+			fields = register.fields
+			fieldList = []
+			try:
+				fields_iter = fields.itervalues()
+			except AttributeError:
+				fields_iter = fields.values()
 
-		column1Width = max(len(field[0]) for field in fieldList) + 2 # padding
-		column2Width = max(len(field[1]) for field in fieldList) # padding
-		for field in fieldList:
-			gdb.write("\t{}:{}{}".format(field[0], "".ljust(column1Width - len(field[0])), field[1].rjust(column2Width)))
-			if field[2] != field[0]:
-				gdb.write("  {}".format(field[2]))
-			gdb.write("\n");
+			for f in fields_iter:
+				desc = re.sub(r'\s+', ' ', f.description)
+				if register.readable():
+					val = data >> f.offset
+					val &= (1 << f.width) - 1
+					if f.enum:
+						if val in f.enum:
+							desc = f.enum[val][1] + " - " + desc
+							val = f.enum[val][0]
+						else:
+							val = "Invalid enum value: " + self.format(val, form, f.width)
+					else:
+						val = self.format(val, form, f.width)
+				else:
+					val = "(not readable)"
+				fieldList.append((f.name, val, desc))
+
+			column1Width = max(len(field[0]) for field in fieldList) + 2 # padding
+			column2Width = max(len(field[1]) for field in fieldList) # padding
+			for field in fieldList:
+				gdb.write("\t{}:{}{}".format(field[0], "".ljust(column1Width - len(field[0])), field[1].rjust(column2Width)))
+				if field[2] != field[0]:
+					gdb.write("  {}".format(field[2]))
+				gdb.write("\n");
+		except:
+			gdb.write("\t{}: {}\n".format(register.name, self.format(data, form, register.size)))
 
 	def invoke(self, args, from_tty):
 		try:

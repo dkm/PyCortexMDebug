@@ -42,10 +42,9 @@ class SVDFile:
 	def __init__(self, fname):
 		f = objectify.parse(os.path.expanduser(fname))
 		root = f.getroot()
-		periph = root.peripherals.getchildren()
 		self.peripherals = OrderedDict()
 		# XML elements
-		for p in periph:
+		for p in root.peripherals.iterchildren(tag='peripheral'):
 			try:
 				self.peripherals[str(p.name)] = SVDPeripheral(p, self)
 			except SVDNonFatalError as e:
@@ -70,7 +69,7 @@ def add_register(parent, node):
 	else:
 		try:
 			parent.registers[str(node.name)] = SVDPeripheralRegister(node, parent)
-		except:
+		except SVDUnsupportedPeriheral:
 			pass
 
 def add_cluster(parent, node):
@@ -93,8 +92,8 @@ def add_cluster(parent, node):
 	else:
 		try:
 			parent.clusters[str(node.name)] = SVDRegisterCluster(node, parent)
-		except SVDNonFatalError as e:
-			print(e)
+		except SVDUnsupportedPeriheral:
+			pass
 
 class SVDRegisterCluster:
 	def __init__(self, svd_elem, parent):
@@ -124,6 +123,10 @@ class SVDRegisterCluster:
 	def __unicode__(self):
 		return str(self.name)
 
+class SVDUnsupportedPeriheral(Exception):
+	def __init__(self, elem):
+                self.elem = elem
+
 class SVDPeripheral:
 	def __init__(self, svd_elem, parent):
 		self.parent = parent
@@ -145,16 +148,23 @@ class SVDPeripheral:
 			self.refactor_parent(parent)
 		else:
 			# This doesn't inherit registers from anything
-			registers = svd_elem.registers.getchildren()
-			self.description = str(svd_elem.description)
+			try:
+				self.description = str(svd_elem.description)
+			except:
+				self.description = 'No description provided'
 			self.name = str(svd_elem.name)
 			self.registers = OrderedDict()
 			self.clusters = OrderedDict()
-			for r in registers:
-				if r.tag == "cluster":
-					add_cluster(self, r)
-				else:
-					add_register(self, r)
+
+			try:
+				registers = svd_elem.registers.getchildren()
+				for r in registers:
+					if r.tag == "cluster":
+						add_cluster(self, r)
+					else:
+						add_register(self, r)
+			except:
+				pass
 
 	def refactor_parent(self, parent):
 		self.parent = parent
@@ -171,8 +181,9 @@ class SVDPeripheral:
 			for c in self.clusters.values():
 				c.refactor_parent(self)
 
-	def __unicode__(self):
-		return str(self.name)
+	def __repr__(self):
+		return self.name
+
 
 class SVDPeripheralRegister:
 	def __init__(self, svd_elem, parent):
@@ -230,10 +241,13 @@ class SVDPeripheralRegisterField:
 				self.offset = bitrange[1]
 				self.width = 1 + bitrange[0] - bitrange[1]
 			except:
-				lsb = int(str(svd_elem.lsb))
-				msb = int(str(svd_elem.msb))
-				self.offset = lsb
-				self.width = 1 + msb - lsb
+				try:
+					lsb = int(str(svd_elem.lsb))
+					msb = int(str(svd_elem.msb))
+					self.offset = lsb
+					self.width = 1 + msb - lsb
+				except:
+					raise SVDUnsupportedPeriheral(svd_elem)
 		self.access = str(getattr(svd_elem, "access", parent.access))
 		self.enum = {}
 
